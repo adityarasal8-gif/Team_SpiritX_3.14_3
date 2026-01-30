@@ -1,0 +1,28 @@
+# Python dependencies for Hospital Bed Occupancy Prediction System
+
+# FastAPI and server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.17
+
+# Database
+sqlalchemy>=2.0.36
+psycopg2-binary>=2.9.10
+alembic>=1.14.0
+
+# Machine Learning - Prophet for time-series forecasting
+prophet>=1.1.6
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Environment and utilities
+python-dotenv>=1.0.0
+pydantic>=2.10.0
+requests>=2.31.0
+pydantic-settings>=2.6.0
+
+# CORS and middleware
+python-jose[cryptography]>=3.3.0
+
+# Optional: Data generation for demo
+faker>=33.0.0
