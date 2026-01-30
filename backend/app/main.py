@@ -13,7 +13,11 @@ It handles:
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import hospitals, ehr, predictions
+from app.routers import hospitals, ehr, predictions, auth, public
+
+# Import all models to ensure they're registered with SQLAlchemy
+from app.models.hospital import Hospital, EHRRecord
+from app.models.user import User
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -38,6 +42,8 @@ app.add_middleware(
 )
 
 # Register API routers
+app.include_router(auth.router, prefix="/api", tags=["Authentication"])
+app.include_router(public.router, prefix="/api", tags=["Public Patient API"])
 app.include_router(hospitals.router, prefix="/api", tags=["Hospitals"])
 app.include_router(ehr.router, prefix="/api", tags=["EHR Records"])
 app.include_router(predictions.router, prefix="/api", tags=["Predictions & Analytics"])

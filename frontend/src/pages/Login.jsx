@@ -32,11 +32,10 @@ const Login = () => {
 
     const result = await login(email, password);
     
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
+    if (!result.success) {
       setError(result.error || 'Login failed. Please try again.');
     }
+    // Navigation handled in AuthContext based on role
     
     setLoading(false);
   };
@@ -50,7 +49,7 @@ const Login = () => {
             <Heart className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Sign in to access your hospital dashboard</p>
+          <p className="text-gray-600">Sign in to your account</p>
         </div>
 
         {/* Login Card */}
@@ -120,7 +119,7 @@ const Login = () => {
 
           <div className="mt-6 pt-6 border-t border-gray-100">
             <p className="text-xs text-gray-500 text-center">
-              Demo: Use any email and password to login
+              Hospital Admin or Patient Login
             </p>
           </div>
         </div>

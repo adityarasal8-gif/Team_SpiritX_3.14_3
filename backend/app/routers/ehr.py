@@ -2,9 +2,9 @@
 EHR (Electronic Health Records) Router
 
 Endpoints:
-- POST /api/ehr - Create a new EHR daily record
-- GET /api/ehr/{hospital_id} - Get all EHR records for a hospital
-- GET /api/ehr/{hospital_id}/latest - Get most recent EHR record
+- POST /api/ehr - Create a new EHR daily record (Admin only)
+- GET /api/ehr/{hospital_id} - Get all EHR records for a hospital (Admin only)
+- GET /api/ehr/{hospital_id}/latest - Get most recent EHR record (Admin only)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -14,7 +14,9 @@ from typing import List
 from datetime import date
 from app.database import get_db
 from app.models.hospital import Hospital, EHRRecord
+from app.models.user import User
 from app.schemas.hospital import EHRRecordCreate, EHRRecordResponse
+from app.services.auth_service import require_hospital_admin
 
 router = APIRouter()
 
@@ -22,14 +24,16 @@ router = APIRouter()
 @router.post("/ehr", response_model=EHRRecordResponse, status_code=status.HTTP_201_CREATED)
 async def create_ehr_record(
     ehr: EHRRecordCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hospital_admin)
 ):
     """
-    Create a new EHR daily record for a hospital
+    Create a new EHR daily record for a hospital (Hospital Admin only)
     
     Args:
         ehr: EHR record data including admissions, discharges, occupancy
         db: Database session
+        current_user: Authenticated hospital admin user
         
     Returns:
         Created EHR record
@@ -86,14 +90,16 @@ async def get_ehr_records(
     hospital_id: int,
     skip: int = 0,
     limit: int = 365,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hospital_admin)
 ):
     """
-    Get all EHR records for a specific hospital
+    Get all EHR records for a specific hospital (Hospital Admin only)
     
     Args:
         hospital_id: Hospital ID
         skip: Number of records to skip
+        current_user: Authenticated hospital admin user
         limit: Maximum records to return (default 365 days)
         db: Database session
         
@@ -122,14 +128,16 @@ async def get_ehr_records(
 @router.get("/ehr/{hospital_id}/latest", response_model=EHRRecordResponse)
 async def get_latest_ehr_record(
     hospital_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hospital_admin)
 ):
     """
-    Get the most recent EHR record for a hospital
+    Get the most recent EHR record for a hospital (Hospital Admin only)
     
     Args:
         hospital_id: Hospital ID
         db: Database session
+        current_user: Authenticated hospital admin user
         
     Returns:
         Most recent EHR record

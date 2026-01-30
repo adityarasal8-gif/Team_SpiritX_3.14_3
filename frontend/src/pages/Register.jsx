@@ -1,33 +1,56 @@
 /**
  * Register Page
  * 
- * User registration page with email/password/hospital name
+ * User registration page with role selection (Hospital Admin or Patient)
  * Modern card-based design with validation
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { Heart, AlertCircle } from 'lucide-react';
+import { useAuth, USER_ROLES } from '../context/AuthContext';
+import { Heart, AlertCircle, Building2, User } from 'lucide-react';
+import { getPublicHospitals } from '../services/api';
 
 const Register = () => {
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    hospitalName: ''
+    role: USER_ROLES.PATIENT,
+    hospitalId: ''
   });
+  const [hospitals, setHospitals] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
   const { register } = useAuth();
   const navigate = useNavigate();
 
+  // Fetch hospitals for admin registration
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      try {
+        console.log('Fetching hospitals from public API...');
+        const data = await getPublicHospitals();
+        console.log('Hospitals fetched:', data);
+        setHospitals(data);
+      } catch (err) {
+        console.error('Error fetching hospitals:', err);
+        console.error('Error details:', err.response?.data);
+      }
+    };
+    fetchHospitals();
+  }, []);
+
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value,
+      // Clear hospitalId when switching to patient
+      ...(name === 'role' && value === USER_ROLES.PATIENT && { hospitalId: '' })
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -36,8 +59,14 @@ const Register = () => {
     setLoading(true);
 
     // Validation
-    if (!formData.email || !formData.password || !formData.hospitalName) {
+    if (!formData.name || !formData.email || !formData.password) {
       setError('Please fill in all required fields');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.role === USER_ROLES.HOSPITAL_ADMIN && !formData.hospitalId) {
+      setError('Hospital admins must select a hospital');
       setLoading(false);
       return;
     }
@@ -54,13 +83,18 @@ const Register = () => {
       return;
     }
 
-    const result = await register(formData.email, formData.password, formData.hospitalName);
+    const result = await register(
+      formData.name,
+      formData.email,
+      formData.password,
+      formData.role,
+      formData.hospitalId ? parseInt(formData.hospitalId) : null
+    );
     
-    if (result.success) {
-      navigate('/dashboard');
-    } else {
+    if (!result.success) {
       setError(result.error || 'Registration failed. Please try again.');
     }
+    // Navigation handled in AuthContext based on role
     
     setLoading(false);
   };
@@ -87,18 +121,53 @@ const Register = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Role Selection */}
             <div>
-              <label htmlFor="hospitalName" className="block text-sm font-semibold text-gray-700 mb-2">
-                Hospital Name <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                I am a... <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleChange({ target: { name: 'role', value: USER_ROLES.PATIENT } })}
+                  className={`p-4 border-2 rounded-xl transition-all ${
+                    formData.role === USER_ROLES.PATIENT
+                      ? 'border-sky-500 bg-sky-50 text-sky-700'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <User className="w-6 h-6 mx-auto mb-2" />
+                  <div className="text-sm font-semibold">Patient</div>
+                  <div className="text-xs text-gray-500 mt-1">Find best time to visit</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleChange({ target: { name: 'role', value: USER_ROLES.HOSPITAL_ADMIN } })}
+                  className={`p-4 border-2 rounded-xl transition-all ${
+                    formData.role === USER_ROLES.HOSPITAL_ADMIN
+                      ? 'border-sky-500 bg-sky-50 text-sky-700'
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                >
+                  <Building2 className="w-6 h-6 mx-auto mb-2" />
+                  <div className="text-sm font-semibold">Hospital Admin</div>
+                  <div className="text-xs text-gray-500 mt-1">Manage hospital data</div>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
+                Full Name <span className="text-red-500">*</span>
               </label>
               <input
-                id="hospitalName"
-                name="hospitalName"
+                id="name"
+                name="name"
                 type="text"
-                value={formData.hospitalName}
+                value={formData.name}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all outline-none"
-                placeholder="e.g. City General Hospital"
+                placeholder="John Doe"
                 disabled={loading}
               />
             </div>
@@ -114,10 +183,34 @@ const Register = () => {
                 value={formData.email}
                 onChange={handleChange}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all outline-none"
-                placeholder="admin@hospital.com"
+                placeholder={formData.role === USER_ROLES.HOSPITAL_ADMIN ? "admin@hospital.com" : "patient@email.com"}
                 disabled={loading}
               />
             </div>
+
+            {/* Hospital Selection (only for admins) */}
+            {formData.role === USER_ROLES.HOSPITAL_ADMIN && (
+              <div>
+                <label htmlFor="hospitalId" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Select Hospital <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="hospitalId"
+                  name="hospitalId"
+                  value={formData.hospitalId}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all outline-none"
+                  disabled={loading}
+                >
+                  <option value="">Choose a hospital...</option>
+                  {hospitals.map(hospital => (
+                    <option key={hospital.id} value={hospital.id}>
+                      {hospital.hospital_name} - {hospital.location}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">

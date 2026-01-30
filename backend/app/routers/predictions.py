@@ -2,8 +2,8 @@
 Predictions and Analytics Router
 
 Endpoints:
-- GET /api/predict/{hospital_id} - Generate bed occupancy predictions
-- GET /api/dashboard/{hospital_id} - Complete dashboard data with analytics
+- GET /api/predict/{hospital_id} - Generate bed occupancy predictions (Admin only)
+- GET /api/dashboard/{hospital_id} - Complete dashboard data with analytics (Admin only)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -13,6 +13,7 @@ from typing import List
 from datetime import date, timedelta
 from app.database import get_db
 from app.models.hospital import Hospital, EHRRecord
+from app.models.user import User
 from app.schemas.hospital import (
     PredictionResponse,
     PredictionPoint,
@@ -20,6 +21,7 @@ from app.schemas.hospital import (
     AlertItem
 )
 from app.services.prediction_service import prediction_service
+from app.services.auth_service import require_hospital_admin
 
 router = APIRouter()
 
@@ -28,16 +30,18 @@ router = APIRouter()
 async def predict_occupancy(
     hospital_id: int,
     days: int = Query(default=7, ge=1, le=30, description="Number of days to predict"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hospital_admin)
 ):
     """
-    Generate bed occupancy predictions for a hospital
+    Generate bed occupancy predictions for a hospital (Hospital Admin only)
     
     Uses Prophet time-series forecasting to predict future bed occupancy
     based on historical EHR data.
     
     Args:
         hospital_id: Hospital ID
+        current_user: Authenticated hospital admin user
         days: Number of days to predict (1-30, default 7)
         db: Database session
         
@@ -97,10 +101,11 @@ async def predict_occupancy(
 @router.get("/dashboard/{hospital_id}", response_model=DashboardResponse)
 async def get_dashboard(
     hospital_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hospital_admin)
 ):
     """
-    Get complete dashboard data for a hospital
+    Get complete dashboard data for a hospital (Hospital Admin only)
     
     Provides:
     - Current hospital metrics
@@ -112,6 +117,7 @@ async def get_dashboard(
     Args:
         hospital_id: Hospital ID
         db: Database session
+        current_user: Authenticated hospital admin user
         
     Returns:
         Complete dashboard data

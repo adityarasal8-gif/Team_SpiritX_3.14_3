@@ -2,9 +2,9 @@
 Hospital Management Router
 
 Endpoints:
-- POST /api/hospitals - Create a new hospital
-- GET /api/hospitals - List all hospitals
-- GET /api/hospitals/{hospital_id} - Get specific hospital details
+- POST /api/hospitals - Create a new hospital (Admin only)
+- GET /api/hospitals - List all hospitals (Public - no auth required)
+- GET /api/hospitals/{hospital_id} - Get specific hospital details (Public - no auth required)
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
 from app.models.hospital import Hospital
+from app.models.user import User
 from app.schemas.hospital import HospitalCreate, HospitalResponse
+from app.services.auth_service import require_hospital_admin
 
 router = APIRouter()
 
@@ -20,14 +22,16 @@ router = APIRouter()
 @router.post("/hospitals", response_model=HospitalResponse, status_code=status.HTTP_201_CREATED)
 async def create_hospital(
     hospital: HospitalCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_hospital_admin)
 ):
     """
-    Create a new hospital in the system
+    Create a new hospital in the system (Hospital Admin only)
     
     Args:
         hospital: Hospital data including name, location, and bed capacity
         db: Database session
+        current_user: Authenticated hospital admin user
         
     Returns:
         Created hospital with assigned ID
