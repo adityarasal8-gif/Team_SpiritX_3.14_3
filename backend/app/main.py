@@ -32,6 +32,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+@app.on_event("startup")
+def startup_event():
+    print("✅ Application started successfully")
 
 # Note: Database tables should be created manually or via migration scripts
 # To initialize: run `python -c "from app.database import engine, Base; from app.models import *; Base.metadata.create_all(bind=engine)"`
