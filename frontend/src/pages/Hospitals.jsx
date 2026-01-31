@@ -116,7 +116,7 @@ const Hospitals = () => {
     const updateToast = toast.loading(`Updating ${selectedHospital.hospital_name}...`);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       
       if (!token) {
         throw new Error('Please login to update hospitals');
@@ -216,7 +216,7 @@ const Hospitals = () => {
     const syncToast = toast.loading(`Syncing data for ${hospital.hospital_name}...`);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:8000/api/hospitals/${hospital.id}/sync`, {
         method: 'POST',
         headers: {
@@ -253,7 +253,7 @@ const Hospitals = () => {
     const saveToast = toast.loading('Saving API configuration...');
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('auth_token');
       const response = await fetch(`http://localhost:8000/api/hospitals/${selectedHospital.id}/api-config`, {
         method: 'PUT',
         headers: {
