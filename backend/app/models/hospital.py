@@ -6,7 +6,7 @@ This module defines SQLAlchemy ORM models for:
 - EHRRecord: Daily electronic health records with admission/discharge data
 """
 
-from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Date, ForeignKey, DateTime, Boolean, Text
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -25,6 +25,15 @@ class Hospital(Base):
     total_beds = Column(Integer, nullable=False)
     icu_beds = Column(Integer, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # API Integration fields for real-time sync
+    api_enabled = Column(Boolean, default=False, nullable=False)
+    api_endpoint = Column(String, nullable=True)  # Hospital's API endpoint URL
+    api_key = Column(String, nullable=True)  # Encrypted API key for authentication
+    webhook_url = Column(String, nullable=True)  # Webhook for push notifications
+    sync_interval = Column(Integer, default=300, nullable=False)  # Sync interval in seconds (default 5 min)
+    last_sync = Column(DateTime, nullable=True)  # Last successful sync timestamp
+    api_notes = Column(Text, nullable=True)  # Additional notes about API integration
     
     # Relationship to EHR records
     ehr_records = relationship("EHRRecord", back_populates="hospital", cascade="all, delete-orphan")

@@ -6,8 +6,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Hospital, MapPin, Bed, Heart, Plus, Search, Edit2, Trash2, X, Eye, Activity } from 'lucide-react';
+import { Hospital, MapPin, Bed, Heart, Plus, Search, Edit2, Trash2, X, Eye, Activity, Wifi, WifiOff, Settings, Zap, Clock } from 'lucide-react';
 import { getHospitals, getDashboard, createHospital } from '../services/api';
+import toast from 'react-hot-toast';
 
 const Hospitals = () => {
   const [hospitals, setHospitals] = useState([]);
@@ -16,6 +17,7 @@ const Hospitals = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedHospital, setSelectedHospital] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showAPIModal, setShowAPIModal] = useState(false);
   const [hospitalDetails, setHospitalDetails] = useState(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [formData, setFormData] = useState({
@@ -24,8 +26,17 @@ const Hospitals = () => {
     total_beds: '',
     icu_beds: ''
   });
+  const [apiConfig, setApiConfig] = useState({
+    api_enabled: false,
+    api_endpoint: '',
+    api_key: '',
+    webhook_url: '',
+    sync_interval: 300,
+    api_notes: ''
+  });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     loadHospitals();
@@ -66,6 +77,93 @@ const Hospitals = () => {
   const handleEdit = (hospital) => {
     alert(`Edit functionality for ${hospital.hospital_name} - Coming soon!`);
     // TODO: Implement edit modal
+  };
+
+  const handleConfigureAPI = (hospital) => {
+    setSelectedHospital(hospital);
+    setApiConfig({
+      api_enabled: hospital.api_enabled || false,
+      api_endpoint: hospital.api_endpoint || '',
+      api_key: '', // Don't populate for security
+      webhook_url: hospital.webhook_url || '',
+      sync_interval: hospital.sync_interval || 300,
+      api_notes: hospital.api_notes || ''
+    });
+    setShowAPIModal(true);
+  };
+
+  const handleSyncNow = async (hospital) => {
+    if (!hospital.api_enabled) {
+      toast.error('API integration not enabled for this hospital');
+      return;
+    }
+
+    setSyncing(true);
+    const syncToast = toast.loading(`Syncing data for ${hospital.hospital_name}...`);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/api/hospitals/${hospital.id}/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Sync failed');
+      }
+
+      const result = await response.json();
+      toast.success(`✅ ${result.message} (${result.records_synced} records)`, { id: syncToast });
+      await loadHospitals();
+    } catch (error) {
+      console.error('Sync failed:', error);
+      toast.error('Failed to sync data. Check API configuration.', { id: syncToast });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSaveAPIConfig = async (e) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (apiConfig.api_enabled && !apiConfig.api_endpoint.trim()) {
+      setFormError('API endpoint is required when API is enabled');
+      return;
+    }
+
+    setSaving(true);
+    const saveToast = toast.loading('Saving API configuration...');
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/api/hospitals/${selectedHospital.id}/api-config`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apiConfig)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to save configuration');
+      }
+
+      toast.success('✅ API configuration saved successfully!', { id: saveToast });
+      setShowAPIModal(false);
+      await loadHospitals();
+    } catch (error) {
+      console.error('Failed to save API config:', error);
+      toast.error(error.message || 'Failed to save configuration', { id: saveToast });
+      setFormError(error.message || 'Failed to save configuration');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = (hospital) => {
@@ -325,14 +423,57 @@ const Hospitals = () => {
                 </div>
               </div>
 
+              {/* API Integration Status */}
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <button 
-                  onClick={() => handleViewDetails(hospital)}
-                  className="w-full px-4 py-2 bg-sky-50 text-sky-600 rounded-xl font-semibold hover:bg-sky-100 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  View Details
-                </button>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    {hospital.api_enabled ? (
+                      <>
+                        <Wifi className="w-4 h-4 text-green-600" />
+                        <span className="text-sm font-semibold text-green-600">API Connected</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-500">No API Integration</span>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleConfigureAPI(hospital)}
+                    className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Configure API"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {hospital.api_enabled && hospital.last_sync && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+                    <Clock className="w-3 h-3" />
+                    <span>Last sync: {new Date(hospital.last_sync).toLocaleString()}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={() => handleViewDetails(hospital)}
+                    className="px-4 py-2 bg-sky-50 text-sky-600 rounded-xl font-semibold hover:bg-sky-100 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View
+                  </button>
+                  {hospital.api_enabled && (
+                    <button
+                      onClick={() => handleSyncNow(hospital)}
+                      disabled={syncing}
+                      className="px-4 py-2 bg-green-50 text-green-600 rounded-xl font-semibold hover:bg-green-100 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Sync
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -660,6 +801,219 @@ const Hospitals = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* API Integration Modal */}
+      {showAPIModal && selectedHospital && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
+                    <Wifi className="w-7 h-7 text-green-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">API Integration</h2>
+                    <p className="text-sm text-gray-600">{selectedHospital.hospital_name}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowAPIModal(false)}
+                  className="p-2 hover:bg-white rounded-lg transition-colors"
+                  disabled={saving}
+                >
+                  <X className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content - Form */}
+            <form onSubmit={handleSaveAPIConfig} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {formError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <p className="text-sm text-red-700">{formError}</p>
+                </div>
+              )}
+
+              {/* Info Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-blue-900 mb-2">📡 Real-Time Data Sync</h4>
+                <p className="text-sm text-blue-700">
+                  Connect your hospital's EHR system API for automatic bed occupancy updates. 
+                  This enables real-time data synchronization without manual entry.
+                </p>
+              </div>
+
+              {/* Enable API Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <label htmlFor="api_enabled" className="text-sm font-semibold text-gray-700">
+                    Enable API Integration
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">Turn on to activate automatic data sync</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="api_enabled"
+                    checked={apiConfig.api_enabled}
+                    onChange={(e) => setApiConfig({ ...apiConfig, api_enabled: e.target.checked })}
+                    className="sr-only peer"
+                    disabled={saving}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                </label>
+              </div>
+
+              {apiConfig.api_enabled && (
+                <>
+                  {/* API Endpoint */}
+                  <div>
+                    <label htmlFor="api_endpoint" className="block text-sm font-semibold text-gray-700 mb-2">
+                      API Endpoint URL *
+                    </label>
+                    <input
+                      type="url"
+                      id="api_endpoint"
+                      value={apiConfig.api_endpoint}
+                      onChange={(e) => setApiConfig({ ...apiConfig, api_endpoint: e.target.value })}
+                      placeholder="https://your-hospital-api.com/ehr/occupancy"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      disabled={saving}
+                      required={apiConfig.api_enabled}
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Your hospital's EHR API endpoint that returns current bed occupancy data
+                    </p>
+                  </div>
+
+                  {/* API Key */}
+                  <div>
+                    <label htmlFor="api_key" className="block text-sm font-semibold text-gray-700 mb-2">
+                      API Key / Bearer Token
+                    </label>
+                    <input
+                      type="password"
+                      id="api_key"
+                      value={apiConfig.api_key}
+                      onChange={(e) => setApiConfig({ ...apiConfig, api_key: e.target.value })}
+                      placeholder="Enter your API authentication key"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      disabled={saving}
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Optional: Authentication key for secure API access
+                    </p>
+                  </div>
+
+                  {/* Webhook URL */}
+                  <div>
+                    <label htmlFor="webhook_url" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Webhook URL (Optional)
+                    </label>
+                    <input
+                      type="url"
+                      id="webhook_url"
+                      value={apiConfig.webhook_url}
+                      onChange={(e) => setApiConfig({ ...apiConfig, webhook_url: e.target.value })}
+                      placeholder="https://your-hospital-api.com/webhooks/bed-updates"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      disabled={saving}
+                    />
+                    <p className="text-xs text-gray-500 mt-2">
+                      Receive push notifications when occupancy changes
+                    </p>
+                  </div>
+
+                  {/* Sync Interval */}
+                  <div>
+                    <label htmlFor="sync_interval" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Sync Interval (seconds)
+                    </label>
+                    <select
+                      id="sync_interval"
+                      value={apiConfig.sync_interval}
+                      onChange={(e) => setApiConfig({ ...apiConfig, sync_interval: parseInt(e.target.value) })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
+                      disabled={saving}
+                    >
+                      <option value="60">Every 1 minute</option>
+                      <option value="300">Every 5 minutes (Recommended)</option>
+                      <option value="600">Every 10 minutes</option>
+                      <option value="1800">Every 30 minutes</option>
+                      <option value="3600">Every hour</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-2">
+                      How often to fetch data from your API
+                    </p>
+                  </div>
+
+                  {/* API Notes */}
+                  <div>
+                    <label htmlFor="api_notes" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Additional Notes
+                    </label>
+                    <textarea
+                      id="api_notes"
+                      value={apiConfig.api_notes}
+                      onChange={(e) => setApiConfig({ ...apiConfig, api_notes: e.target.value })}
+                      placeholder="Any additional information about the API integration..."
+                      rows="3"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none resize-none"
+                      disabled={saving}
+                    />
+                  </div>
+
+                  {/* Expected Response Format */}
+                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">📋 Expected API Response Format</h4>
+                    <pre className="text-xs text-gray-700 bg-white p-3 rounded-lg overflow-x-auto">
+{`{
+  "date": "2026-01-31",
+  "occupied_beds": 150,
+  "icu_occupied": 20,
+  "admissions": 15,
+  "discharges": 12,
+  "emergency_cases": 8
+}`}
+                    </pre>
+                  </div>
+                </>
+              )}
+
+              {/* Form Actions */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAPIModal(false)}
+                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Wifi className="w-5 h-5" />
+                      Save Configuration
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

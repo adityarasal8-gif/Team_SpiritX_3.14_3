@@ -33,8 +33,36 @@ class HospitalResponse(HospitalBase):
     """Schema for hospital response"""
     id: int
     created_at: datetime_type
+    api_enabled: bool = False
+    api_endpoint: Optional[str] = None
+    webhook_url: Optional[str] = None
+    sync_interval: int = 300
+    last_sync: Optional[datetime_type] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+
+class APIIntegrationConfig(BaseModel):
+    """Schema for configuring hospital API integration"""
+    api_enabled: bool = Field(..., description="Enable/disable API integration")
+    api_endpoint: Optional[str] = Field(None, description="Hospital's API endpoint URL")
+    api_key: Optional[str] = Field(None, description="API key for authentication")
+    webhook_url: Optional[str] = Field(None, description="Webhook URL for push notifications")
+    sync_interval: int = Field(300, gt=0, le=3600, description="Sync interval in seconds (1-3600)")
+    api_notes: Optional[str] = Field(None, max_length=1000, description="Additional notes")
+
+
+class APISyncRequest(BaseModel):
+    """Schema for manual API sync trigger"""
+    hospital_id: int = Field(..., description="Hospital ID to sync")
+
+
+class APISyncResponse(BaseModel):
+    """Schema for API sync response"""
+    success: bool
+    message: str
+    records_synced: int = 0
+    last_sync: Optional[datetime_type] = None
 
 
 # ============== EHR Record Schemas ==============
