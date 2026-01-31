@@ -24,6 +24,7 @@ import PatientDashboard from './pages/patient/PatientDashboard';
 import BestTimeToVisit from './pages/patient/BestTimeToVisit';
 import CompareHospitals from './pages/patient/CompareHospitals';
 import PatientAlerts from './pages/patient/PatientAlerts';
+import HospitalMap from './pages/patient/HospitalMap';
 import './index.css';
 
 function App() {
@@ -92,6 +93,7 @@ function App() {
             <Route index element={<PatientDashboard />} />
             <Route path="forecast" element={<BestTimeToVisit />} />
             <Route path="compare" element={<CompareHospitals />} />
+            <Route path="map" element={<HospitalMap />} />
             <Route path="alerts" element={<PatientAlerts />} />
           </Route>
 

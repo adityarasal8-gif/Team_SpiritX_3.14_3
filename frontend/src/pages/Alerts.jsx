@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { AlertCircle, Bell, CheckCircle, XCircle, Settings, TrendingUp } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { getHospitals } from '../services/api';
 
 const Alerts = () => {
@@ -141,6 +142,36 @@ const Alerts = () => {
     if (diffHours < 24) return `${diffHours}h ago`;
     const diffDays = Math.floor(diffHours / 24);
     return `${diffDays}d ago`;
+  };
+
+  const handleDismiss = (alertId) => {
+    setAlerts(alerts.filter(a => a.id !== alertId));
+    toast.success('Alert dismissed', {
+      style: {
+        background: '#dcfce7',
+        color: '#166534',
+        border: '2px solid #bbf7d0',
+        borderRadius: '12px',
+        padding: '16px',
+        fontWeight: '600',
+      },
+      duration: 3000,
+    });
+  };
+
+  const handleMarkAsRead = (alertId) => {
+    setAlerts(alerts.map(a => a.id === alertId ? { ...a, read: true } : a));
+    toast.success('Marked as read', {
+      style: {
+        background: '#dbeafe',
+        color: '#1e40af',
+        border: '2px solid #bfdbfe',
+        borderRadius: '12px',
+        padding: '16px',
+        fontWeight: '600',
+      },
+      duration: 2000,
+    });
   };
 
   return (
@@ -308,11 +339,19 @@ const Alerts = () => {
                       <span className="text-sm text-gray-500">{formatTimestamp(alert.timestamp)}</span>
                       <div className="flex items-center gap-2">
                         {!alert.read && (
-                          <button className="px-4 py-2 bg-sky-50 text-sky-600 rounded-lg font-semibold hover:bg-sky-100 transition-colors text-sm">
+                          <button 
+                            onClick={() => handleMarkAsRead(alert.id)}
+                            className="px-4 py-2 bg-sky-50 text-sky-600 rounded-lg font-semibold hover:bg-sky-100 transition-colors text-sm flex items-center gap-2"
+                          >
+                            <CheckCircle className="w-4 h-4" />
                             Mark as Read
                           </button>
                         )}
-                        <button className="px-4 py-2 bg-gray-50 text-gray-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-sm">
+                        <button 
+                          onClick={() => handleDismiss(alert.id)}
+                          className="px-4 py-2 bg-red-50 text-red-600 rounded-lg font-semibold hover:bg-red-100 transition-colors text-sm flex items-center gap-2"
+                        >
+                          <XCircle className="w-4 h-4" />
                           Dismiss
                         </button>
                       </div>

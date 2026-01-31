@@ -17,7 +17,8 @@ import {
   TrendingUp, 
   Bell,
   User,
-  LogOut 
+  LogOut,
+  MapIcon
 } from 'lucide-react';
 
 const PatientDashboardLayout = () => {
@@ -31,6 +32,7 @@ const PatientDashboardLayout = () => {
 
   const navItems = [
     { name: 'Find Hospitals', path: '/patient', icon: Search, end: true },
+    { name: 'Hospital Map', path: '/patient/map', icon: MapIcon },
     { name: 'Best Time to Visit', path: '/patient/forecast', icon: Calendar },
     { name: 'Compare Hospitals', path: '/patient/compare', icon: TrendingUp },
     { name: 'Alerts', path: '/patient/alerts', icon: Bell },

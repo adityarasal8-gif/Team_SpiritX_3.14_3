@@ -6,19 +6,28 @@ JWT token creation/validation and password hashing.
 
 from datetime import datetime, timedelta
 from typing import Optional
+import os
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.schemas.auth import TokenData
 
-# Configuration
-SECRET_KEY = "your-secret-key-change-in-production-use-env-variable"  # TODO: Move to .env
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+# Load environment variables
+load_dotenv()
+
+# Configuration from environment
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key-change-in-production")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24 hours
+
+# Warn if using default secret key
+if SECRET_KEY == "dev-secret-key-change-in-production":
+    print("⚠️  WARNING: Using default SECRET_KEY! Set SECRET_KEY in .env for production!")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

@@ -8,7 +8,7 @@
  * - Alerts for high occupancy
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Bed, 
   Activity, 
@@ -19,6 +19,7 @@ import {
   CheckCircle,
   Users
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import MetricCard from '../components/MetricCard';
 import OccupancyChart from '../components/OccupancyChart';
 import AlertsPanel from '../components/AlertsPanel';
@@ -31,6 +32,7 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const previousAlerts = useRef([]);
 
   // Load hospitals on mount
   useEffect(() => {
@@ -43,6 +45,40 @@ const Dashboard = () => {
       loadDashboard(selectedHospitalId);
     }
   }, [selectedHospitalId]);
+
+  // Monitor alerts for changes and show notifications
+  useEffect(() => {
+    if (dashboardData?.alerts && previousAlerts.current.length > 0) {
+      const newAlerts = dashboardData.alerts.filter(
+        alert => !previousAlerts.current.some(
+          prev => prev.date === alert.date && prev.severity === alert.severity
+        )
+      );
+
+      newAlerts.forEach(alert => {
+        const icon = alert.severity === 'red' ? '🚨' : alert.severity === 'yellow' ? '⚠️' : 'ℹ️';
+        const toastStyle = {
+          style: {
+            background: alert.severity === 'red' ? '#fee2e2' : alert.severity === 'yellow' ? '#fef3c7' : '#dbeafe',
+            color: alert.severity === 'red' ? '#991b1b' : alert.severity === 'yellow' ? '#92400e' : '#1e40af',
+            border: `2px solid ${alert.severity === 'red' ? '#fecaca' : alert.severity === 'yellow' ? '#fde68a' : '#bfdbfe'}`,
+            borderRadius: '12px',
+            padding: '16px',
+            fontWeight: '600',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+          },
+          duration: 5000,
+          position: 'top-right',
+        };
+
+        toast(`${icon} New Alert: ${alert.message}`, toastStyle);
+      });
+    }
+
+    if (dashboardData?.alerts) {
+      previousAlerts.current = dashboardData.alerts;
+    }
+  }, [dashboardData]);
 
   const loadHospitals = async () => {
     try {
@@ -60,10 +96,14 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
     try {
+      console.log('Loading dashboard for hospital:', hospitalId);
       const data = await getDashboard(hospitalId);
+      console.log('Dashboard data received:', data);
       setDashboardData(data);
     } catch (err) {
-      setError('Failed to load dashboard: ' + err.message);
+      console.error('Dashboard error:', err);
+      console.error('Error response:', err.response);
+      setError('Failed to load dashboard: ' + (err.response?.data?.detail || err.message));
     } finally {
       setLoading(false);
     }

@@ -12,8 +12,13 @@ It handles:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
+from dotenv import load_dotenv
 from app.database import engine, Base
 from app.routers import hospitals, ehr, predictions, auth, public
+
+# Load environment variables
+load_dotenv()
 
 # Import all models to ensure they're registered with SQLAlchemy
 from app.models.hospital import Hospital, EHRRecord
@@ -31,11 +36,23 @@ app = FastAPI(
 # Note: Database tables should be created manually or via migration scripts
 # To initialize: run `python -c "from app.database import engine, Base; from app.models import *; Base.metadata.create_all(bind=engine)"`
 
-# Configure CORS for frontend communication
-# In production, replace "*" with specific frontend URLs
+# Get allowed origins from environment
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+allowed_origins = [FRONTEND_URL]
+
+# In development, allow localhost variants
+if "localhost" in FRONTEND_URL:
+    allowed_origins.extend([
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173"
+    ])
+
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with frontend URL in production
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
